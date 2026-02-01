@@ -8,7 +8,7 @@ export const config = {
     baseURL: "https://api.keywordsai.co/api/",
   },
   app: {
-    name: "Recovery Based Workout Recommendation",
+    name: "SenseFit",
     version: "1.0.0",
   },
   defaults: {

@@ -17,6 +17,7 @@ type WorkoutState = {
   // Actions
   startWorkout: (name: string, userId: string) => void;
   endWorkout: () => void;
+  cancelWorkout: () => void;
   addExercise: (exercise: Exercise) => void;
   removeExercise: (exerciseId: string) => void;
   updateExercise: (exerciseId: string, updates: Partial<Exercise>) => void;
@@ -52,6 +53,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         startTime: now,
         exercises: [],
         isTemplate: false,
+        status: "in_progress", // Added status
       },
       isWorkoutActive: true,
       workoutStartTime: now,
@@ -73,13 +75,16 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       return (
         total +
         exercise.sets.reduce((setTotal, set) => {
-          return setTotal + (set.weight || 0) * (set.reps || 0);
+          if (set.completed) {
+            return setTotal + (set.weight || 0) * (set.reps || 0);
+          }
+          return setTotal;
         }, 0)
       );
     }, 0);
 
     const totalSets = activeWorkout.exercises.reduce((total, exercise) => {
-      return total + exercise.sets.length;
+      return total + exercise.sets.filter((s) => s.completed).length;
     }, 0);
 
     const completedWorkout: Workout = {
@@ -88,6 +93,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       duration,
       totalVolume,
       totalSets,
+      status: "completed", // Set status to completed
     };
 
     set((state) => ({
@@ -96,6 +102,25 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       isWorkoutActive: false,
       workoutStartTime: null,
     }));
+  },
+
+  cancelWorkout: () => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return;
+
+    const endTime = new Date().toISOString();
+    const cancelledWorkout: Workout = {
+      ...activeWorkout,
+      endTime,
+      status: "cancelled", // Set status to cancelled
+    };
+
+    // Optionally save cancelled workouts
+    set({
+      activeWorkout: null,
+      isWorkoutActive: false,
+      workoutStartTime: null,
+    });
   },
 
   addExercise: (exercise: Exercise) => {
@@ -229,13 +254,18 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         return (
           total +
           exercise.sets.reduce((setTotal, workoutSet) => {
-            return setTotal + (workoutSet.weight || 0) * (workoutSet.reps || 0);
+            if (workoutSet.completed) {
+              return (
+                setTotal + (workoutSet.weight || 0) * (workoutSet.reps || 0)
+              );
+            }
+            return setTotal;
           }, 0)
         );
       }, 0);
 
       const totalSets = activeWorkout.exercises.reduce((total, exercise) => {
-        return total + exercise.sets.length;
+        return total + exercise.sets.filter((s) => s.completed).length;
       }, 0);
 
       const completedWorkout: Workout = {
@@ -244,6 +274,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         duration,
         totalVolume,
         totalSets,
+        status: "completed", // Set status to completed
       };
 
       // Insert into Supabase
@@ -261,6 +292,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         notes: completedWorkout.notes,
         is_template: completedWorkout.isTemplate,
         ai_generated: completedWorkout.aiGenerated,
+        status: completedWorkout.status, // Added status
       });
 
       if (insertError) {
@@ -315,6 +347,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         notes: row.notes,
         isTemplate: row.is_template,
         aiGenerated: row.ai_generated,
+        status: row.status || "completed", // Added status with fallback
       }));
 
       set({ workouts, isLoading: false, error: null });

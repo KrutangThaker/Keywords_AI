@@ -1,32 +1,82 @@
 // app/(tabs)/progress.tsx
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useWorkoutStore } from '../../store/workoutStore';
+import {
+  calculateMuscleGroupStats,
+  calculateProgressStats,
+  getWeeklyRecoveryScore,
+  type MuscleGroupStats,
+  type ProgressStats,
+} from '../../utils/progressStats';
 
 const { width } = Dimensions.get('window');
 
 export default function ProgressScreen() {
-  // Mock data - replace with actual data later
-  const stats = {
-    totalWorkouts: 47,
-    totalVolume: 624000,
-    avgDuration: 54,
-    personalRecords: 12,
+  const { workouts, loadWorkouts } = useWorkoutStore();
+  const [stats, setStats] = useState<ProgressStats | null>(null);
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroupStats[]>([]);
+  const [recoveryScore, setRecoveryScore] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUser();
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      // Load workouts if not already loaded
+      if (workouts.length === 0 && user) {
+        await loadWorkouts(user.id);
+      }
+
+      // Calculate statistics
+      const progressStats = calculateProgressStats(workouts);
+      const muscleGroupStats = calculateMuscleGroupStats(workouts);
+      const weeklyRecovery = getWeeklyRecoveryScore(workouts);
+
+      setStats(progressStats);
+      setMuscleGroups(muscleGroupStats);
+      setRecoveryScore(weeklyRecovery);
+    } catch (error) {
+      console.error('Error loading progress data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const muscleGroups = [
-    { name: 'Chest', percentage: 85, sets: 42 },
-    { name: 'Back', percentage: 78, sets: 39 },
-    { name: 'Legs', percentage: 92, sets: 48 },
-    { name: 'Shoulders', percentage: 65, sets: 32 },
-    { name: 'Arms', percentage: 70, sets: 35 },
-  ];
+  // Refresh when workouts change
+  useEffect(() => {
+    if (workouts.length > 0) {
+      const progressStats = calculateProgressStats(workouts);
+      const muscleGroupStats = calculateMuscleGroupStats(workouts);
+      const weeklyRecovery = getWeeklyRecoveryScore(workouts);
+
+      setStats(progressStats);
+      setMuscleGroups(muscleGroupStats);
+      setRecoveryScore(weeklyRecovery);
+    }
+  }, [workouts]);
+
+  if (isLoading || !stats) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading your progress...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -39,8 +89,12 @@ export default function ProgressScreen() {
         </View>
         <View style={styles.statBox}>
           <Ionicons name="barbell" size={28} color="#FF6B35" />
-          <Text style={styles.statValue}>{(stats.totalVolume / 1000).toFixed(0)}k</Text>
-          <Text style={styles.statLabel}>Total Volume</Text>
+          <Text style={styles.statValue}>
+            {stats.totalVolume >= 1000
+              ? `${(stats.totalVolume / 1000).toFixed(1)}k`
+              : stats.totalVolume}
+          </Text>
+          <Text style={styles.statLabel}>Total Volume (lbs)</Text>
         </View>
         <View style={styles.statBox}>
           <Ionicons name="time" size={28} color="#4CAF50" />
@@ -50,33 +104,51 @@ export default function ProgressScreen() {
         <View style={styles.statBox}>
           <Ionicons name="trophy" size={28} color="#FFD700" />
           <Text style={styles.statValue}>{stats.personalRecords}</Text>
-          <Text style={styles.statLabel}>Personal Records</Text>
+          <Text style={styles.statLabel}>Exercises Tracked</Text>
         </View>
       </View>
 
       {/* Muscle Group Breakdown */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Muscle Group Balance</Text>
-        <View style={styles.card}>
-          {muscleGroups.map((group, index) => (
-            <View key={group.name} style={styles.muscleGroupItem}>
-              <View style={styles.muscleGroupHeader}>
-                <Text style={styles.muscleGroupName}>{group.name}</Text>
-                <Text style={styles.muscleGroupSets}>{group.sets} sets</Text>
+      {muscleGroups.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Muscle Group Balance</Text>
+          <View style={styles.card}>
+            {muscleGroups.map((group) => (
+              <View key={group.name} style={styles.muscleGroupItem}>
+                <View style={styles.muscleGroupHeader}>
+                  <Text style={styles.muscleGroupName}>{group.name}</Text>
+                  <Text style={styles.muscleGroupSets}>{group.sets} sets</Text>
+                </View>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${group.percentage}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.muscleGroupPercentage}>
+                  {group.percentage}% • {group.volume >= 1000
+                    ? `${(group.volume / 1000).toFixed(1)}k`
+                    : group.volume}{' '}
+                  lbs
+                </Text>
               </View>
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    { width: `${group.percentage}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.muscleGroupPercentage}>{group.percentage}%</Text>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Muscle Group Balance</Text>
+          <View style={[styles.card, styles.emptyCard]}>
+            <Ionicons name="fitness-outline" size={48} color="#C7C7CC" />
+            <Text style={styles.emptyText}>No workout data yet</Text>
+            <Text style={styles.emptySubtext}>
+              Complete workouts to see your muscle group breakdown
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Weekly Summary */}
       <View style={styles.section}>
@@ -84,15 +156,36 @@ export default function ProgressScreen() {
         <View style={styles.card}>
           <View style={styles.weeklyRow}>
             <Text style={styles.weeklyLabel}>Workouts Completed</Text>
-            <Text style={styles.weeklyValue}>4 / 5</Text>
+            <Text style={styles.weeklyValue}>
+              {stats.weeklyWorkouts} / {stats.weeklyTarget}
+            </Text>
           </View>
           <View style={styles.weeklyRow}>
             <Text style={styles.weeklyLabel}>Total Volume</Text>
-            <Text style={styles.weeklyValue}>52.3k lbs</Text>
+            <Text style={styles.weeklyValue}>
+              {stats.weeklyVolume >= 1000
+                ? `${(stats.weeklyVolume / 1000).toFixed(1)}k`
+                : stats.weeklyVolume}{' '}
+              lbs
+            </Text>
           </View>
           <View style={styles.weeklyRow}>
-            <Text style={styles.weeklyLabel}>Recovery Score (Avg)</Text>
-            <Text style={styles.weeklyValue}>76%</Text>
+            <Text style={styles.weeklyLabel}>Recovery Score</Text>
+            <Text
+              style={[
+                styles.weeklyValue,
+                {
+                  color:
+                    recoveryScore >= 80
+                      ? '#4CAF50'
+                      : recoveryScore >= 60
+                        ? '#FF9500'
+                        : '#FF3B30',
+                },
+              ]}
+            >
+              {recoveryScore}%
+            </Text>
           </View>
         </View>
       </View>
@@ -105,6 +198,8 @@ export default function ProgressScreen() {
           <Text style={styles.placeholderText}>Chart coming soon</Text>
         </View>
       </View>
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
@@ -113,6 +208,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F2F2F7',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#8E8E93',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -153,6 +257,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#C7C7CC',
+    marginTop: 4,
+    textAlign: 'center',
   },
   muscleGroupItem: {
     marginBottom: 20,

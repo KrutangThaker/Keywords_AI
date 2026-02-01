@@ -1,6 +1,8 @@
 // types/workout.ts
 export type SetType = "normal" | "warmup" | "dropset" | "failure";
 
+export type WorkoutStatus = "in_progress" | "completed" | "cancelled";
+
 export type WorkoutSet = {
   id: string;
   setNumber: number;
@@ -38,6 +40,7 @@ export type Workout = {
   notes?: string;
   isTemplate: boolean;
   aiGenerated?: boolean;
+  status: WorkoutStatus; // Added status field
 };
 
 export type WorkoutTemplate = {

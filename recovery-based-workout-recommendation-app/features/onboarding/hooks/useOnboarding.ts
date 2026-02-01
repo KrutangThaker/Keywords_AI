@@ -1,33 +1,35 @@
 // features/onboarding/hooks/useOnboarding.ts
-import { useUser } from '@clerk/clerk-expo';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useUser } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 
 export type OnboardingStep =
-  | 'not-started'
-  | 'goals-complete'
-  | 'plan-complete'
-  | 'permissions-complete'
-  | 'complete';
+  | "not-started"
+  | "goals-complete"
+  | "plan-complete"
+  | "permissions-complete"
+  | "complete";
 
 export function useOnboarding() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>('not-started');
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>("not-started");
   const [isOnboarding, setIsOnboarding] = useState(false);
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    const onboardingComplete = user?.unsafeMetadata?.onboardingComplete as boolean;
-    const step = (user?.unsafeMetadata?.onboardingStep as OnboardingStep) || 'not-started';
+    const onboardingComplete = user?.unsafeMetadata
+      ?.onboardingComplete as boolean;
+    const step =
+      (user?.unsafeMetadata?.onboardingStep as OnboardingStep) || "not-started";
 
     setIsOnboarding(!onboardingComplete);
     setCurrentStep(step);
 
     // Redirect based on onboarding status
-    if (!onboardingComplete && step === 'not-started') {
-      router.replace('/(auth)/onboarding/welcome');
+    if (!onboardingComplete && step === "not-started") {
+      router.replace("/(auth)/onboarding/welcome");
     }
   }, [isLoaded, user]);
 
@@ -42,7 +44,7 @@ export function useOnboarding() {
       });
       setIsOnboarding(false);
     } catch (error) {
-      console.error('Error completing onboarding:', error);
+      console.error("Error completing onboarding:", error);
       throw error;
     }
   };
@@ -57,7 +59,7 @@ export function useOnboarding() {
       });
       setCurrentStep(step);
     } catch (error) {
-      console.error('Error updating onboarding step:', error);
+      console.error("Error updating onboarding step:", error);
       throw error;
     }
   };
@@ -68,13 +70,13 @@ export function useOnboarding() {
         unsafeMetadata: {
           ...user.unsafeMetadata,
           onboardingComplete: false,
-          onboardingStep: 'not-started',
+          onboardingStep: "not-started",
         },
       });
       setIsOnboarding(true);
-      setCurrentStep('not-started');
+      setCurrentStep("not-started");
     } catch (error) {
-      console.error('Error resetting onboarding:', error);
+      console.error("Error resetting onboarding:", error);
       throw error;
     }
   };
