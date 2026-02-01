@@ -10,10 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useActiveWorkout } from '../../features/workout/hooks/useActiveWorkout';
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
   const [workoutName, setWorkoutName] = useState('');
+  const { createWorkout } = useActiveWorkout();
 
   const startWorkout = () => {
     if (!workoutName.trim()) {
@@ -21,14 +23,14 @@ export default function NewWorkoutScreen() {
       return;
     }
 
-    // Create new workout and navigate to active workout screen
-    const workoutId = Date.now().toString();
-    router.replace(`/workout/${workoutId}`);
+    createWorkout(workoutName.trim());
+    router.replace('/workout/active');
   };
 
   const quickStart = () => {
-    const workoutId = Date.now().toString();
-    router.replace(`/workout/${workoutId}`);
+    const defaultName = `Workout ${new Date().toLocaleDateString()}`;
+    createWorkout(defaultName);
+    router.replace('/workout/active');
   };
 
   return (
@@ -50,6 +52,8 @@ export default function NewWorkoutScreen() {
           value={workoutName}
           onChangeText={setWorkoutName}
           autoFocus
+          returnKeyType="done"
+          onSubmitEditing={startWorkout}
         />
 
         <TouchableOpacity style={styles.primaryButton} onPress={startWorkout}>
@@ -72,6 +76,7 @@ export default function NewWorkoutScreen() {
   );
 }
 
+// ... same styles as before
 const styles = StyleSheet.create({
   container: {
     flex: 1,

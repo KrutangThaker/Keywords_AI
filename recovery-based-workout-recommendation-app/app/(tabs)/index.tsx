@@ -1,35 +1,40 @@
-// app/(tabs)/index.tsx
+// app/(tabs)/index.tsx (update imports and data loading)
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
-  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { useWorkoutStore } from '../../store/workoutStore';
+import { getRelativeTime } from '../../utils/dateHelpers';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { workouts, loadWorkouts } = useWorkoutStore();
   const firstName = user?.firstName || 'there';
 
-  // Mock data - replace with actual hooks later
+  useEffect(() => {
+    loadWorkouts();
+  }, []);
+
+  // Calculate stats
+  const now = new Date();
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+  const weeklyWorkouts = workouts.filter((w) => new Date(w.date) >= weekStart).length;
+
+  // Get recent workouts
+  const recentWorkouts = workouts.slice(0, 3);
+
+  // Mock recovery data - will be replaced with real health data later
   const recoveryScore = 78;
   const currentStreak = 5;
-  const weeklyWorkouts = 4;
-
-  const recentWorkouts = [
-    { id: '1', name: 'Push Day', date: '2 days ago', exercises: 8 },
-    { id: '2', name: 'Pull Day', date: '4 days ago', exercises: 7 },
-    { id: '3', name: 'Leg Day', date: '5 days ago', exercises: 6 },
-  ];
 
   const getRecoveryColor = (score: number) => {
     if (score >= 80) return ['#4CAF50', '#81C784'] as const;
@@ -118,36 +123,39 @@ export default function HomeScreen() {
       </View>
 
       {/* Recent Workouts */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Workouts</Text>
-          <TouchableOpacity onPress={() => router.push('/workouts')}>
-            <Text style={styles.seeAllText}>See All</Text>
-          </TouchableOpacity>
+      {recentWorkouts.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Workouts</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/workouts')}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          {recentWorkouts.map((workout) => (
+            <TouchableOpacity
+              key={workout.id}
+              style={styles.workoutCard}
+              onPress={() => router.push(`/workout/${workout.id}`)}
+            >
+              <View style={styles.workoutIconContainer}>
+                <Ionicons name="barbell" size={24} color="#007AFF" />
+              </View>
+              <View style={styles.workoutInfo}>
+                <Text style={styles.workoutName}>{workout.name}</Text>
+                <Text style={styles.workoutMeta}>
+                  {workout.exercises.length} exercises • {getRelativeTime(workout.date)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+            </TouchableOpacity>
+          ))}
         </View>
-        {recentWorkouts.map((workout) => (
-          <TouchableOpacity
-            key={workout.id}
-            style={styles.workoutCard}
-            onPress={() => router.push(`/workout/${workout.id}`)}
-          >
-            <View style={styles.workoutIconContainer}>
-              <Ionicons name="barbell" size={24} color="#007AFF" />
-            </View>
-            <View style={styles.workoutInfo}>
-              <Text style={styles.workoutName}>{workout.name}</Text>
-              <Text style={styles.workoutMeta}>
-                {workout.exercises} exercises • {workout.date}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-          </TouchableOpacity>
-        ))}
-      </View>
+      )}
     </ScrollView>
   );
 }
 
+// ... keep all the existing styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,

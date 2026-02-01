@@ -1,4 +1,4 @@
-// app/workout/exercise-select.tsx
+// app/workout/exercise-select.tsx (replace entire file)
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -9,81 +9,28 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-
-type Exercise = {
-  id: string;
-  name: string;
-  muscleGroup: string;
-  equipment?: string;
-};
-
-const EXERCISES_BY_MUSCLE: { [key: string]: Exercise[] } = {
-  Chest: [
-    { id: 'c1', name: 'Bench Press', muscleGroup: 'Chest', equipment: 'Barbell' },
-    { id: 'c2', name: 'Incline Bench Press', muscleGroup: 'Chest', equipment: 'Barbell' },
-    { id: 'c3', name: 'Dumbbell Flyes', muscleGroup: 'Chest', equipment: 'Dumbbell' },
-    { id: 'c4', name: 'Push-ups', muscleGroup: 'Chest', equipment: 'Bodyweight' },
-    { id: 'c5', name: 'Cable Flyes', muscleGroup: 'Chest', equipment: 'Cable' },
-  ],
-  Back: [
-    { id: 'b1', name: 'Deadlift', muscleGroup: 'Back', equipment: 'Barbell' },
-    { id: 'b2', name: 'Pull-ups', muscleGroup: 'Back', equipment: 'Bodyweight' },
-    { id: 'b3', name: 'Barbell Rows', muscleGroup: 'Back', equipment: 'Barbell' },
-    { id: 'b4', name: 'Lat Pulldown', muscleGroup: 'Back', equipment: 'Cable' },
-    { id: 'b5', name: 'Seated Cable Rows', muscleGroup: 'Back', equipment: 'Cable' },
-    { id: 'b6', name: 'Face Pulls', muscleGroup: 'Back', equipment: 'Cable' },
-  ],
-  Legs: [
-    { id: 'l1', name: 'Squat', muscleGroup: 'Legs', equipment: 'Barbell' },
-    { id: 'l2', name: 'Leg Press', muscleGroup: 'Legs', equipment: 'Machine' },
-    { id: 'l3', name: 'Romanian Deadlift', muscleGroup: 'Legs', equipment: 'Barbell' },
-    { id: 'l4', name: 'Leg Curls', muscleGroup: 'Legs', equipment: 'Machine' },
-    { id: 'l5', name: 'Leg Extensions', muscleGroup: 'Legs', equipment: 'Machine' },
-    { id: 'l6', name: 'Calf Raises', muscleGroup: 'Legs', equipment: 'Machine' },
-  ],
-  Shoulders: [
-    { id: 's1', name: 'Overhead Press', muscleGroup: 'Shoulders', equipment: 'Barbell' },
-    { id: 's2', name: 'Lateral Raises', muscleGroup: 'Shoulders', equipment: 'Dumbbell' },
-    { id: 's3', name: 'Front Raises', muscleGroup: 'Shoulders', equipment: 'Dumbbell' },
-    { id: 's4', name: 'Rear Delt Flyes', muscleGroup: 'Shoulders', equipment: 'Dumbbell' },
-    { id: 's5', name: 'Arnold Press', muscleGroup: 'Shoulders', equipment: 'Dumbbell' },
-  ],
-  Arms: [
-    { id: 'a1', name: 'Barbell Curl', muscleGroup: 'Arms', equipment: 'Barbell' },
-    { id: 'a2', name: 'Hammer Curls', muscleGroup: 'Arms', equipment: 'Dumbbell' },
-    { id: 'a3', name: 'Tricep Pushdowns', muscleGroup: 'Arms', equipment: 'Cable' },
-    { id: 'a4', name: 'Skull Crushers', muscleGroup: 'Arms', equipment: 'Barbell' },
-    { id: 'a5', name: 'Dips', muscleGroup: 'Arms', equipment: 'Bodyweight' },
-    { id: 'a6', name: 'Preacher Curls', muscleGroup: 'Arms', equipment: 'Machine' },
-  ],
-  Core: [
-    { id: 'co1', name: 'Planks', muscleGroup: 'Core', equipment: 'Bodyweight' },
-    { id: 'co2', name: 'Crunches', muscleGroup: 'Core', equipment: 'Bodyweight' },
-    { id: 'co3', name: 'Cable Crunches', muscleGroup: 'Core', equipment: 'Cable' },
-    { id: 'co4', name: 'Leg Raises', muscleGroup: 'Core', equipment: 'Bodyweight' },
-    { id: 'co5', name: 'Russian Twists', muscleGroup: 'Core', equipment: 'Bodyweight' },
-  ],
-};
+import { EXERCISE_DATABASE, MUSCLE_GROUPS } from '../../constants/exercises';
+import { useActiveWorkout } from '../../features/workout/hooks/useActiveWorkout';
+import type { ExerciseLibraryItem, MuscleGroup } from '../../types/exercise';
 
 export default function ExerciseSelectScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<MuscleGroup | null>(null);
+  const { addExerciseToWorkout } = useActiveWorkout();
 
-  const muscleGroups = Object.keys(EXERCISES_BY_MUSCLE);
-
-  const selectExercise = (exercise: Exercise) => {
-    // Add exercise to workout and go back
-    console.log('Selected:', exercise.name);
+  const selectExercise = (exercise: ExerciseLibraryItem) => {
+    // Add exercise to active workout
+    addExerciseToWorkout(exercise.name, exercise.id);
     router.back();
   };
 
   const filteredExercises = () => {
     let exercises = selectedMuscleGroup
-      ? EXERCISES_BY_MUSCLE[selectedMuscleGroup]
-      : Object.values(EXERCISES_BY_MUSCLE).flat();
+      ? EXERCISE_DATABASE.filter((ex) => ex.muscleGroup === selectedMuscleGroup)
+      : EXERCISE_DATABASE;
 
     if (searchQuery.trim()) {
       exercises = exercises.filter((ex) =>
@@ -94,14 +41,18 @@ export default function ExerciseSelectScreen() {
     return exercises;
   };
 
-  const getMuscleGroupIcon = (muscleGroup: string) => {
-    const icons: { [key: string]: keyof typeof Ionicons.glyphMap } = {
+  const getMuscleGroupIcon = (
+    muscleGroup: MuscleGroup
+  ): keyof typeof Ionicons.glyphMap => {
+    const icons: { [key in MuscleGroup]: keyof typeof Ionicons.glyphMap } = {
       Chest: 'body',
       Back: 'shield',
       Legs: 'walk',
       Shoulders: 'fitness',
       Arms: 'hand-right',
       Core: 'analytics',
+      Cardio: 'bicycle',
+      'Full Body': 'body',
     };
     return icons[muscleGroup] || 'barbell';
   };
@@ -148,7 +99,7 @@ export default function ExerciseSelectScreen() {
             All
           </Text>
         </TouchableOpacity>
-        {muscleGroups.map((group) => (
+        {MUSCLE_GROUPS.map((group) => (
           <TouchableOpacity
             key={group}
             style={[
@@ -209,7 +160,7 @@ export default function ExerciseSelectScreen() {
         }
       />
 
-      {/* Create Custom Exercise */}
+      {/* Create Custom Exercise Button */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.createButton}>
           <Ionicons name="create-outline" size={20} color="#007AFF" />

@@ -1,7 +1,7 @@
-// app/(tabs)/workouts.tsx
+// app/(tabs)/workouts.tsx (update to use store)
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -10,57 +10,24 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-type Workout = {
-  id: string;
-  name: string;
-  date: string;
-  duration: string;
-  exercises: number;
-  volume: number;
-};
+import { useWorkoutStore } from '../../store/workoutStore';
+import { formatDate, formatShortDuration } from '../../utils/dateHelpers';
+import { formatVolume } from '../../utils/formatters';
 
 export default function WorkoutsScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const { workouts, loadWorkouts } = useWorkoutStore();
 
-  // Mock data - replace with actual data later
-  const workouts: Workout[] = [
-    {
-      id: '1',
-      name: 'Push Day',
-      date: 'Jan 29, 2026',
-      duration: '52 min',
-      exercises: 8,
-      volume: 12500,
-    },
-    {
-      id: '2',
-      name: 'Pull Day',
-      date: 'Jan 27, 2026',
-      duration: '48 min',
-      exercises: 7,
-      volume: 11200,
-    },
-    {
-      id: '3',
-      name: 'Leg Day',
-      date: 'Jan 26, 2026',
-      duration: '65 min',
-      exercises: 6,
-      volume: 15800,
-    },
-    {
-      id: '4',
-      name: 'Upper Body',
-      date: 'Jan 24, 2026',
-      duration: '55 min',
-      exercises: 9,
-      volume: 13400,
-    },
-  ];
+  useEffect(() => {
+    loadWorkouts();
+  }, []);
 
-  const renderWorkoutItem = ({ item }: { item: Workout }) => (
+  const filteredWorkouts = workouts.filter((workout) =>
+    workout.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderWorkoutItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.workoutCard}
       onPress={() => router.push(`/workout/${item.id}`)}
@@ -68,21 +35,23 @@ export default function WorkoutsScreen() {
       <View style={styles.workoutHeader}>
         <View>
           <Text style={styles.workoutName}>{item.name}</Text>
-          <Text style={styles.workoutDate}>{item.date}</Text>
+          <Text style={styles.workoutDate}>{formatDate(item.date)}</Text>
         </View>
         <View style={styles.volumeBadge}>
-          <Text style={styles.volumeText}>{(item.volume / 1000).toFixed(1)}k</Text>
+          <Text style={styles.volumeText}>{formatVolume(item.totalVolume || 0)}</Text>
           <Text style={styles.volumeLabel}>lbs</Text>
         </View>
       </View>
       <View style={styles.workoutStats}>
         <View style={styles.stat}>
           <Ionicons name="time-outline" size={16} color="#8E8E93" />
-          <Text style={styles.statText}>{item.duration}</Text>
+          <Text style={styles.statText}>
+            {item.duration ? formatShortDuration(item.duration) : 'N/A'}
+          </Text>
         </View>
         <View style={styles.stat}>
           <Ionicons name="barbell-outline" size={16} color="#8E8E93" />
-          <Text style={styles.statText}>{item.exercises} exercises</Text>
+          <Text style={styles.statText}>{item.exercises.length} exercises</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -103,19 +72,32 @@ export default function WorkoutsScreen() {
       </View>
 
       {/* Workout List */}
-      <FlatList
-        data={workouts}
-        renderItem={renderWorkoutItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {filteredWorkouts.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="barbell-outline" size={80} color="#C7C7CC" />
+          <Text style={styles.emptyTitle}>No workouts yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Start your first workout to see it here
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => router.push('/workout/new')}
+          >
+            <Text style={styles.emptyButtonText}>Start Workout</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredWorkouts}
+          renderItem={renderWorkoutItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/workout/new')}
-      >
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/workout/new')}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </View>
@@ -145,6 +127,36 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1C1C1E',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
+    marginTop: 24,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  emptyButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   listContent: {
     paddingHorizontal: 20,
